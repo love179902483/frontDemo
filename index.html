@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<style>
+    .message-box{
+        min-width:400px;
+        max-width: 500px;
+        height: 400px; 
+        font-size:14px;
+        background-color: #00bcd4;
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 10px;
+        overflow: auto;
+    }
+    .message-box .my-message{
+        width: 100%;
+        height: 30px;
+        line-height: 30px;
+        /* background-color: #fff; */
+        text-align:right;
+          
+    }
+    .message-box .other-message{
+        width: 100%;
+        text-align: left;
+    }
+</style>
+<body>
+    <div>
+        <input type="text" id='registerUserName' placeholder="userName">
+        <input type="password" id='registerPassword' placeholder="password">
+        <input type="text" id='registerNickname' placeholder="nickname">
+        <button onclick="register()">--register--</button>
+    </div>
+    <div>
+        <input type="text" id='userName' placeholder="userName">
+        <input type="password" id='password' placeholder="password">
+        <button onclick="login()">--login--</button>
+    </div>
+    
+    <button onclick ="tryWebsocket()">webSocket</button>
+    <button onclick="testToken()">testToken</button>
+    <div class="message-box" id='messageBox'>
+
+    </div>
+    
+</body>
+<script src='./node_modules/jquery/dist/jquery.js'></script>  
+<script>
+    var serverPath = "http://127.0.0.1:2000"
+    function testToken(){
+
+        var thisToken = window.localStorage.getItem('mytoken')
+        console.log(window.localStorage)
+
+        $.ajax({
+            url:serverPath + '/websocket/tokenverify',
+            type:'get',
+            beforeSend:function(request){
+                request.setRequestHeader("Authorization",'basic ' + thisToken)
+            },
+            success:function(result){
+                console.log(result)
+            }
+            
+        })
+    }
+    function login(){
+        var userData = {
+            userName :document.getElementById("userName").value,
+            password:document.getElementById("password").value
+        }
+
+        $.post(serverPath + "/user/login",userData,function(result){
+           console.log(result)
+           if(result.flag ===true){
+               window.localStorage.setItem('mytoken',result.data.token)
+               alert('login success! save token success!' + ' your token is '+ result.data.token);
+           }else{
+               alert('login error !' + result.msg)
+           }
+        });
+
+    }
+    function register(){
+        var registerUserData = {
+            userName : document.getElementById('registerUserName').value,
+            password : document.getElementById('registerPassword').value,
+            nickname : document.getElementById('registerNickname').value
+        }
+        $.post(serverPath + "/user/register",registerUserData,function(result){
+           console.log(result)
+        });
+    }
+
+
+    function tryWebsocket(){
+        if("WebSocket" in window){
+
+            var ws = new WebSocket("ws://localhost:2001")
+            ws.onopen = function(){
+                
+                ws.send("send data")
+            }
+
+            ws.onmessage = function(evt){
+                var message = evt.data;
+                var newElement = $("<p class='other-message'>"+ message +"<p>")
+                $("#messageBox").prepend(newElement)
+            }
+
+            ws.close = function(){
+                alert('closed -----')
+            }
+
+        }else{
+            alert('not sport webSocket')
+        }
+    }
+
+
+</script>
+</html>
