@@ -42,11 +42,11 @@
         <input type="text" id='userName' placeholder="userName">
         <input type="password" id='password' placeholder="password">
         <button onclick="login()">--login--</button>
-        <button onclick="logout()">--logout--</button>
+        <button id='logoutID' onclick="logout()" disabled='disabled'>--logout--</button>
 
         <H3>初始化聊天：</H3>
-        <button id='initChat' onclick="initChat()" >初始化</button>
-
+        <button id='initChat' onclick="initChat()" disabled="disabled">initConnect</button>
+        <button id='closeChat' onclick="closeConnect()"  disabled="disabled">closeConnect</button>
     </div>
     
     <!-- <button onclick ="tryWebsocket()">webSocket</button> -->
@@ -54,7 +54,8 @@
 
 
     <input type="text" id='userMessage'>
-     <button id='userSetMessage' onclick="sendMessage()"  disabled="disabled">sendMessage</button>
+     <button id='userSetMessage' onclick="sendMessage()" disabled="disabled" >sendMessage</button>
+    
     <div class="message-box" id='messageBox'>
 
     </div>
@@ -63,6 +64,30 @@
 <script src='./node_modules/jquery/dist/jquery.js'></script>  
 <script>
     var serverPath = "http://127.0.0.1:2000"
+    
+    /***
+     * 初始化页面
+     * 
+     **/
+    window.onload = function(){
+        isLoginStatus()
+    }
+    /**
+     *判断是否是在登陆状态中 ,并且如果是在登陆状态中则将登出按钮制为可点击
+    **/
+    function isLoginStatus (){
+        var userMsg = window.localStorage.getItem("userMsg")
+        var userToken = window.localStorage.getItem("mytoken")
+        console.log(userMsg)
+        if(userMsg && userToken){
+            enableInitBtn();
+            alert('hello 小朋友！！！'+JSON.parse(userMsg).nickname)
+        }else{
+            disableAllBtn()
+        }
+    }
+
+
     /***
     初始化聊天室
 
@@ -88,29 +113,6 @@
     }
 
 
-    // function sendMessage(){
-       
-
-    //     ws.onmessage = function(evt){
-    //         var message = evt.data;
-    //         var newElement = $("<p class='other-message'>"+ message +"<p>")
-    //         $("#messageBox").prepend(newElement)
-    //     }
-
-    //     // testToken()
-    //     // .then(
-    //     //     function(result){
-    //     //         if(result === true){
-    //     //             tryWebsocket(getUserMessage)
-    //     //         }
-    //     //     }
-           
-    //     // )
-    //     // .catch(function(reason){
-    //     //     alert("发送信息出错咯" + reason)
-    //     // })
-    //     // testToken
-    // }
 
     /***
     发送请求验证是否登陆
@@ -146,7 +148,8 @@
     function logout(){
         window.localStorage.removeItem('mytoken')
         window.localStorage.removeItem('myNickname')
-        alet('--logout success!--')
+        disableAllBtn()
+        alert('--logout success!--')
     }
 
     function login(){
@@ -160,6 +163,8 @@
            if(result.flag ===true){
                window.localStorage.setItem('mytoken',result.data.token)
                window.localStorage.setItem('userMsg',JSON.stringify( result.data.userMsg))
+               isLoginStatus()
+               enableInitBtn()
                alert('login success! save token success!' + 'your user Message '+ JSON.stringify(result.data.userMsg) + ' your token is '+ result.data.token);
            }else{
                alert('login error !' + result.msg)
@@ -183,6 +188,34 @@
         });
     }
 
+    /**
+     * 使初始化按钮可用
+     * */
+    function enableInitBtn (){
+        document.getElementById('initChat').removeAttribute('disabled');
+        document.getElementById('closeChat').disabled = true;
+        document.getElementById('userSetMessage').disabled = true;
+        document.getElementById('logoutID').removeAttribute('disabled');
+    }
+
+    /**
+     * 禁用初始化按钮
+     * 
+     **/
+    function disableInitBtn (){
+        document.getElementById('initChat').disabled = true;
+        document.getElementById('closeChat').removeAttribute('disabled');
+        document.getElementById('userSetMessage').removeAttribute('disabled');
+        document.getElementById('logoutID').removeAttribute('disabled');
+    }
+    /**
+     * 不登陆禁用所有按钮
+     * */
+    function disableAllBtn(){
+        document.getElementById('initChat').disabled = true;
+        document.getElementById('closeChat').disabled = true;
+        document.getElementById('userSetMessage').disabled = true;
+    }
 
     function tryWebsocket(userMsg){
         if("WebSocket" in window){
@@ -198,11 +231,16 @@
                 console.log(JSON.stringify(msg))
                 console.log(document.getElementById('userSetMessage'))
                 ws.send(JSON.stringify(msg))
-                document.getElementById('userSetMessage').removeAttribute('disabled')
-                
+                disableInitBtn()
             }
 
-            
+            ws.onmessage = function(evt){
+                console.log(evt)
+                var message = evt.data;
+                var newElement = $("<p class='other-message'>"+ message +"<p>")
+                $("#messageBox").prepend(newElement)
+            }
+
             document.getElementById('userSetMessage').onclick = function(){
                 var userMessage = document.getElementById("userMessage")
                 if(userMessage.value) {
@@ -219,17 +257,12 @@
                 userMessage.value = ''
                 ws.send(JSON.stringify(msg))
             }
-           
             
-            ws.onmessage = function(evt){
-                var message = evt.data;
-                var newElement = $("<p class='other-message'>"+ message +"<p>")
-                $("#messageBox").prepend(newElement)
+            document.getElementById("closeChat").onclick = function(){
+                console.log(111)
+                ws.close()
+                enableInitBtn()
             }
-            // ws.close = function(){
-            //     alert('closed -----')
-            // }
-
         }else{
             alert('not sport webSocket')
         }
