@@ -42,10 +42,19 @@
         <input type="text" id='userName' placeholder="userName">
         <input type="password" id='password' placeholder="password">
         <button onclick="login()">--login--</button>
+        <button onclick="logout()">--logout--</button>
+
+        <H3>初始化聊天：</H3>
+        <button id='initChat' onclick="initChat()" >初始化</button>
+
     </div>
     
-    <button onclick ="tryWebsocket()">webSocket</button>
-    <button onclick="testToken()">testToken</button>
+    <!-- <button onclick ="tryWebsocket()">webSocket</button> -->
+    <!-- <button onclick="testToken()">testToken</button> -->
+
+
+    <input type="text" id='userMessage'>
+     <button id='userSetMessage' onclick="sendMessage()"  disabled="disabled">sendMessage</button>
     <div class="message-box" id='messageBox'>
 
     </div>
@@ -54,23 +63,92 @@
 <script src='./node_modules/jquery/dist/jquery.js'></script>  
 <script>
     var serverPath = "http://127.0.0.1:2000"
+    /***
+    初始化聊天室
+
+    ***/
+    function initChat(){
+        var userMsg = JSON.parse( window.localStorage.getItem("userMsg"))
+        console.log("my userMsg is  " +userMsg.nickname  )
+        if(userMsg.username !== '{}' && userMsg.username !==null && userMsg.username !=='undefined'){
+            testToken()
+            .then(
+                function(result){
+                    if(result === true){
+                        tryWebsocket(userMsg)
+                    }
+                }
+            )
+            .catch(function(reason){
+                alert("老哥登陆信息出错了吧！")
+            })
+        }else{
+            alert('老哥先登录！！！')
+        }
+    }
+
+
+    // function sendMessage(){
+       
+
+    //     ws.onmessage = function(evt){
+    //         var message = evt.data;
+    //         var newElement = $("<p class='other-message'>"+ message +"<p>")
+    //         $("#messageBox").prepend(newElement)
+    //     }
+
+    //     // testToken()
+    //     // .then(
+    //     //     function(result){
+    //     //         if(result === true){
+    //     //             tryWebsocket(getUserMessage)
+    //     //         }
+    //     //     }
+           
+    //     // )
+    //     // .catch(function(reason){
+    //     //     alert("发送信息出错咯" + reason)
+    //     // })
+    //     // testToken
+    // }
+
+    /***
+    发送请求验证是否登陆
+    ***/
     function testToken(){
+        return new Promise(function(resolve,reject){
+            var thisToken = window.localStorage.getItem('mytoken')
+            console.log(window.localStorage)
 
-        var thisToken = window.localStorage.getItem('mytoken')
-        console.log(window.localStorage)
-
-        $.ajax({
-            url:serverPath + '/websocket/tokenverify',
-            type:'get',
-            beforeSend:function(request){
-                request.setRequestHeader("Authorization",'basic ' + thisToken)
-            },
-            success:function(result){
-                console.log(result)
-            }
-            
+            $.ajax({
+                url:serverPath + '/websocket/tokenverify',
+                type:'get',
+                beforeSend:function(request){
+                    request.setRequestHeader("Authorization",'basic ' + thisToken)
+                },
+                success:function(result){
+                    console.log(result)
+                    if(result !== 403){
+                        resolve(true)
+                    }else{
+                        reject('please login!!!!!')
+                    }   
+                   
+                },
+                error:function(result){
+                    reject('是不是服务挂了！')
+                }
+                
+            })
         })
     }
+
+    function logout(){
+        window.localStorage.removeItem('mytoken')
+        window.localStorage.removeItem('myNickname')
+        alet('--logout success!--')
+    }
+
     function login(){
         var userData = {
             userName :document.getElementById("userName").value,
@@ -81,7 +159,8 @@
            console.log(result)
            if(result.flag ===true){
                window.localStorage.setItem('mytoken',result.data.token)
-               alert('login success! save token success!' + ' your token is '+ result.data.token);
+               window.localStorage.setItem('userMsg',JSON.stringify( result.data.userMsg))
+               alert('login success! save token success!' + 'your user Message '+ JSON.stringify(result.data.userMsg) + ' your token is '+ result.data.token);
            }else{
                alert('login error !' + result.msg)
            }
@@ -96,28 +175,60 @@
         }
         $.post(serverPath + "/user/register",registerUserData,function(result){
            console.log(result)
+           if(result.flag === false){
+               alert('ERROR!!!'+result.msg)
+           }else{
+               alert('SUCCESS!!!'+result.msg)
+           }
         });
     }
 
 
-    function tryWebsocket(){
+    function tryWebsocket(userMsg){
         if("WebSocket" in window){
 
             var ws = new WebSocket("ws://localhost:2001")
+            console.log('浏览器支持webSocket服务！')
             ws.onopen = function(){
+                console.log(userMsg)
+                var msg = {
+                    "type":'setname',
+                    userMsg
+                }
+                console.log(JSON.stringify(msg))
+                console.log(document.getElementById('userSetMessage'))
+                ws.send(JSON.stringify(msg))
+                document.getElementById('userSetMessage').removeAttribute('disabled')
                 
-                ws.send("send data")
             }
 
+            
+            document.getElementById('userSetMessage').onclick = function(){
+                var userMessage = document.getElementById("userMessage")
+                if(userMessage.value) {
+                    console.log(userMessage.value)
+                }else{
+                    alert('send someting 老哥！！！')
+                    return
+                }
+
+                var msg = {
+                    "type":"chat",
+                    "text": userMessage.value
+                }
+                userMessage.value = ''
+                ws.send(JSON.stringify(msg))
+            }
+           
+            
             ws.onmessage = function(evt){
                 var message = evt.data;
                 var newElement = $("<p class='other-message'>"+ message +"<p>")
                 $("#messageBox").prepend(newElement)
             }
-
-            ws.close = function(){
-                alert('closed -----')
-            }
+            // ws.close = function(){
+            //     alert('closed -----')
+            // }
 
         }else{
             alert('not sport webSocket')
